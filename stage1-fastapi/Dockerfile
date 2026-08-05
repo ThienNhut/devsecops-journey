@@ -3,6 +3,9 @@ FROM python:3.11-alpine
 
 WORKDIR /app
 
+# Upgrade pip, setuptools và wheel lên bản an toàn để vá CVE-2026-24049
+RUN pip install --upgrade pip setuptools "wheel>=0.46.2"
+
 # Tạo non-root user (Cú pháp Alpine dùng addgroup/adduser)
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
