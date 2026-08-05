@@ -1,0 +1,75 @@
+name: DevSecOps Automated CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+# CẤP QUYỀN BẮT BUỘC CHO OIDC
+permissions:
+  id-token: write  # Bắt buộc để xin JWT Token từ GitHub gửi cho AWS STS
+  contents: read
+
+jobs:
+  devsecops-pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout mã nguồn
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 2. Gate 1: SAST Code Analysis (Bandit)
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run SAST Scan (Bandit)
+        run: |
+          pip install bandit
+          bandit -r stage1-fastapi/app -ll
+
+      # 3. Xác thực với AWS qua OIDC (Zero Trust)
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::739275451281:role/github-actions-ecr-role
+          aws-region: ap-southeast-1
+
+      # 4. Login vào AWS ECR
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # 5. Gate 2: Build Alpine Hardened Container
+      - name: Build Container Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: stage2-fastapi-tf
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./stage1-fastapi
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+      # 6. Gate 3: Vulnerability Scan Image (Trivy - Zero CVE Guard)
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ steps.login-ecr.outputs.registry }}/stage2-fastapi-tf:${{ github.sha }}'
+          format: 'table'
+          exit-code: '1' # Block Pipeline ngay lập tức nếu phát hiện lỗ hổng CRITICAL/HIGH
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      # 7. Gate 4: Push Container Image lên AWS ECR
+      - name: Push Image to AWS ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: stage2-fastapi-tf
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest

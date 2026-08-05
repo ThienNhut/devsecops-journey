@@ -1,0 +1,9 @@
+# Bỏ qua thư mục làm việc cục bộ của Terraform
+.terraform/
+
+# BẢO MẬT: Bỏ qua mọi file State (Chứa Secret dạng Plaintext)
+*.tfstate
+*.tfstate.*
+
+# Bỏ qua file chứa biến nhạy cảm
+*.tfvars
