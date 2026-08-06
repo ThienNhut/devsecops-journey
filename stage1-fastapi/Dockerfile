@@ -5,12 +5,13 @@ FROM python:3.11-slim-bookworm AS builder
 
 WORKDIR /app
 
-# Patch bảo mật OS & nâng cấp công cụ build
 RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
-RUN pip install --no-cache-dir --upgrade pip "setuptools>=78.1.1" "wheel>=0.46.2"
 
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
+
+# Nâng cấp pip và toàn bộ công cụ build trong venv
+RUN pip install --no-cache-dir --upgrade pip "setuptools>=78.1.1" "wheel>=0.46.2" "jaraco.context>=6.1.0" "msgpack>=1.2.1"
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
@@ -22,14 +23,14 @@ FROM python:3.11-slim-bookworm AS runner
 
 WORKDIR /app
 
-# Patch bảo mật OS & dọn dẹp cache
 RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
-RUN pip install --no-cache-dir --upgrade pip "setuptools>=78.1.1" "wheel>=0.46.2"
+
+# Nâng cấp trực tiếp Python packages ở cấp hệ thống Stage 2
+RUN pip install --no-cache-dir --upgrade pip "setuptools>=78.1.1" "wheel>=0.46.2" "jaraco.context>=6.1.0" "msgpack>=1.2.1"
 
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Tạo Non-root User chuẩn Debian (dùng groupadd/useradd thay cho Alpine adduser)
 RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 
 COPY --chown=appuser:appgroup . .
