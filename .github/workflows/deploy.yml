@@ -73,3 +73,11 @@ jobs:
         run: |
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+# 8. Gate 5: Trigger ECS Rolling Update (Zero Downtime)
+      - name: Deploy to AWS ECS Fargate
+        run: |
+          aws ecs update-service \
+            --cluster stage4-ecs-cluster \
+            --service stage4-fastapi-service \
+            --force-new-deployment \
+            --region ap-southeast-1
