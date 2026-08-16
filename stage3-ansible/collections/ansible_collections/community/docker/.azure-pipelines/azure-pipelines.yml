@@ -1,0 +1,152 @@
+---
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+trigger:
+  batch: true
+  branches:
+    include:
+      - main
+      - stable-*
+
+pr:
+  autoCancel: true
+  branches:
+    include:
+      - main
+      - stable-*
+
+schedules:
+  - cron: 0 9 * * *
+    displayName: Nightly
+    always: true
+    branches:
+      include:
+        - main
+  - cron: 0 12 * * 0
+    displayName: Weekly (old stable branches)
+    always: true
+    branches:
+      include:
+        - stable-4
+
+variables:
+  - name: checkoutPath
+    value: ansible_collections/community/docker
+  - name: coverageBranches
+    value: main
+  - name: entryPoint
+    value: tests/utils/shippable/nox.sh
+  - name: prepareEntryPoint
+    value: tests/utils/shippable/nox-prepare.sh
+  - name: fetchDepth
+    value: 0
+
+resources:
+  containers:
+    - container: default
+      image: quay.io/ansible/azure-pipelines-test-container:8.0.0
+
+pool: Standard
+
+stages:
+  - stage: remote_2_19
+    displayName: Remote 2.19
+    dependsOn: []
+    variables:
+      entryPoint: tests/utils/shippable/nox.sh
+    jobs:
+      - template: templates/matrix.yml
+        parameters:
+          targets:
+            - name: Ubuntu 22.04 + group 1
+              test: ansible-test-integration-2.19-ubuntu-22.04-azp-1
+            - name: Ubuntu 22.04 + group 2
+              test: ansible-test-integration-2.19-ubuntu-22.04-azp-2
+            - name: Ubuntu 22.04 + group 3
+              test: ansible-test-integration-2.19-ubuntu-22.04-azp-3
+            - name: Ubuntu 22.04 + group 4
+              test: ansible-test-integration-2.19-ubuntu-22.04-azp-4
+            - name: Ubuntu 22.04 + group 5
+              test: ansible-test-integration-2.19-ubuntu-22.04-azp-5
+
+  - stage: remote_2_20
+    displayName: Remote 2.20
+    dependsOn: []
+    variables:
+      entryPoint: tests/utils/shippable/nox.sh
+    jobs:
+      - template: templates/matrix.yml
+        parameters:
+          targets:
+            - name: RHEL 9.7 + group 1
+              test: ansible-test-integration-2.20-rhel-9.7-azp-1
+            - name: RHEL 9.7 + group 2
+              test: ansible-test-integration-2.20-rhel-9.7-azp-2
+            - name: RHEL 9.7 + group 3
+              test: ansible-test-integration-2.20-rhel-9.7-azp-3
+            - name: RHEL 9.7 + group 4
+              test: ansible-test-integration-2.20-rhel-9.7-azp-4
+            - name: RHEL 9.7 + group 5
+              test: ansible-test-integration-2.20-rhel-9.7-azp-5
+
+  - stage: remote_2_21
+    displayName: Remote 2.21
+    dependsOn: []
+    variables:
+      entryPoint: tests/utils/shippable/nox.sh
+    jobs:
+      - template: templates/matrix.yml
+        parameters:
+          targets:
+            - name: RHEL 10.1 + group 1
+              test: ansible-test-integration-2.21-rhel-10.1-azp-1
+            - name: RHEL 10.1 + group 2
+              test: ansible-test-integration-2.21-rhel-10.1-azp-2
+            - name: RHEL 10.1 + group 3
+              test: ansible-test-integration-2.21-rhel-10.1-azp-3
+            - name: RHEL 10.1 + group 4
+              test: ansible-test-integration-2.21-rhel-10.1-azp-4
+            - name: RHEL 10.1 + group 5
+              test: ansible-test-integration-2.21-rhel-10.1-azp-5
+
+  - stage: remote_devel
+    displayName: Remote devel
+    dependsOn: []
+    variables:
+      entryPoint: tests/utils/shippable/nox.sh
+    jobs:
+      - template: templates/matrix.yml
+        parameters:
+          targets:
+            - name: RHEL 10.2 + group 1 + sdk-dev-latest
+              test: ansible-test-integration-devel-rhel-10.2-azp-1
+            - name: RHEL 10.2 + group 2 + sdk-dev-latest
+              test: ansible-test-integration-devel-rhel-10.2-azp-2
+            - name: RHEL 10.2 + group 3 + sdk-dev-latest
+              test: ansible-test-integration-devel-rhel-10.2-azp-3
+            - name: RHEL 10.2 + group 4 + sdk-dev-latest
+              test: ansible-test-integration-devel-rhel-10.2-azp-4
+            - name: RHEL 10.2 + group 5 + sdk-dev-latest
+              test: ansible-test-integration-devel-rhel-10.2-azp-5
+            - name: RHEL 9.8 + group 1
+              test: ansible-test-integration-devel-rhel-9.8-azp-1
+            - name: RHEL 9.8 + group 2
+              test: ansible-test-integration-devel-rhel-9.8-azp-2
+            - name: RHEL 9.8 + group 3
+              test: ansible-test-integration-devel-rhel-9.8-azp-3
+            - name: RHEL 9.8 + group 4
+              test: ansible-test-integration-devel-rhel-9.8-azp-4
+            - name: RHEL 9.8 + group 5
+              test: ansible-test-integration-devel-rhel-9.8-azp-5
+
+  - stage: Summary
+    condition: succeededOrFailed()
+    dependsOn:
+      - remote_2_19
+      - remote_2_20
+      - remote_2_21
+      - remote_devel
+    jobs:
+      - template: templates/coverage.yml

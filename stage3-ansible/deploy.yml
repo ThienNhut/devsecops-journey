@@ -1,0 +1,55 @@
+---
+- name: Deploy FastAPI App to AWS EC2
+  hosts: webserver
+  become: true
+  vars:
+    aws_region: "ap-southeast-1"
+    ecr_registry: "739275451281.dkr.ecr.ap-southeast-1.amazonaws.com"
+    image_name: "stage2-fastapi-tf"
+    image_tag: "latest"
+
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Ensure Docker, Python SDK, and AWS CLI are installed
+      ansible.builtin.apt:
+        name:
+          - docker.io
+          - python3-docker
+          - awscli
+        state: present
+
+    - name: Ensure Docker service is running and enabled
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Log in to AWS ECR
+      ansible.builtin.shell: |
+        set -o pipefail
+        aws ecr get-login-password --region {{ aws_region }} | docker login --username AWS --password-stdin {{ ecr_registry }}
+      args:
+        executable: /bin/bash
+      no_log: true
+      changed_when: false
+
+    - name: Pull Docker image from ECR
+      community.docker.docker_image:
+        name: "{{ ecr_registry }}/{{ image_name }}"
+        tag: "{{ image_tag }}"
+        source: pull
+
+    - name: Run FastAPI Container
+      community.docker.docker_container:
+        name: fastapi-app
+        image: "{{ ecr_registry }}/{{ image_name }}:{{ image_tag }}"
+        state: started
+        restart_policy: always
+        recreate: true
+        command: "uvicorn app.main:app --host 0.0.0.0 --port 8000"
+        published_ports:
+          - "80:8000"
