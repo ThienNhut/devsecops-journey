@@ -34,8 +34,7 @@ jobs:
       - name: Audit Ansible Playbook (Ansible-Lint)
         uses: ansible/ansible-lint@main
         with:
-          working_directory: "stage3-ansible"
-
+          args: "stage3-ansible/deploy.yml"
   # =================================================================
   # PHASE 1B: SAST & DEPENDENCY VULNERABILITY AUDIT
   # =================================================================
