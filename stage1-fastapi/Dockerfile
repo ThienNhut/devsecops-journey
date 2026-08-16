@@ -1,39 +1,44 @@
 # ==========================================
 # STAGE 1: Builder
 # ==========================================
-FROM python:3.11-slim-bookworm AS builder
+FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
-RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip "setuptools>=78.1.1" "wheel>=0.46.2" "msgpack>=1.2.1" && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip setuptools && \
+    pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ==========================================
-# STAGE 2: Runner
+# STAGE 2: Runtime
 # ==========================================
-FROM python:3.11-slim-bookworm AS runner
+FROM python:3.11-slim AS runner
 
 WORKDIR /app
 
-RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+# BỔ SUNG PYTHONPATH ĐỂ PYTHON ĐỌC ĐƯỢC CÁC PACKAGE TRONG /install
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/install/bin:$PATH" \
+    PYTHONPATH="/install/lib/python3.11/site-packages:$PYTHONPATH"
 
-# Ép nâng cấp Python hệ thống TRƯỚC KHI nạp venv để xóa sạch bản 70.3.0 & 1.1.2 của Base Image
-RUN /usr/local/bin/python3 -m pip install --no-cache-dir --upgrade pip "setuptools>=78.1.1" "wheel>=0.46.2" "msgpack>=1.2.1"
+# BẢO MẬT ISC2: Tạo Non-root user (Principle of Least Privilege)
+RUN groupadd -g 10001 appgroup && \
+    useradd -u 10001 -g appgroup -s /bin/sh -m appuser
 
-COPY --from=builder /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-RUN groupadd -r appgroup && useradd -r -g appgroup appuser
-
-COPY --chown=appuser:appgroup . .
+COPY --from=builder /install /install
+COPY --chown=appuser:appgroup . /app
 
 USER appuser
 
 EXPOSE 8000
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# Sửa đường dẫn chuẩn app.main:app
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
