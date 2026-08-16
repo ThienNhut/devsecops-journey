@@ -16,7 +16,7 @@ jobs:
   # =================================================================
   # PHASE 1A: INFRASTRUCTURE & CONFIGURATION LINTING
   # =================================================================
-   lint-iac-and-ansible:
+  lint-iac-and-ansible:
     name: "🛠️ IaC & Config Linting"
     runs-on: ubuntu-latest
     steps:
@@ -40,6 +40,7 @@ jobs:
         run: |
           pip install ansible-lint
           ansible-lint stage3-ansible/deploy.yml
+
   # =================================================================
   # PHASE 1B: SAST & DEPENDENCY VULNERABILITY AUDIT
   # =================================================================
