@@ -191,6 +191,15 @@ jobs:
             -e "image_tag=${{ github.sha }}" \
             stage3-ansible/deploy.yml
 
+          # 3. REVOKE WHITELIST: XÓA IP RUNNER KHỎI FIREWALL NGAY KHI XONG
+      - name: Revoke Runner IP from Security Group (ISC2 Sanitization)
+        if: always()
+        run: |
+          aws ec2 revoke-security-group-ingress \
+            --group-id sg-04f439aceae599aab \
+            --protocol tcp \
+            --port 22 \
+            --cidr ${{ steps.ip.outputs.runner_ip }}/32
       - name: Cleanup SSH Key (ISC2 Sanitization)
         if: always()
         run: rm -f ~/.ssh/id_rsa
